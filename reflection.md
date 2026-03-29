@@ -9,14 +9,20 @@ The app should be able to store pet info, track pet care tasks, consider constra
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
-The system uses four classes: `Pet` (pet profile), `Owner` (owner profile + time budget), `CareTask` (a single schedulable task), and `Scheduler` (builds and explains the daily plan).
-
-See [design.md](design.md) for the full class diagram.
+The system uses four classes: Pet (pet profile), Owner (owner profile + time budget), CareTask (a single schedulable task), and Scheduler (builds and explains the daily plan). 
 
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+Yes and three changes were made.
+
+1. Fixed relationship directions: The original diagram had Owner --> Scheduler, but Scheduler is the class that holds owner and pet as attributes. The arrows were reversed to Scheduler --> Owner and Scheduler --> Pet to reflect what the code actually expresses.
+
+2. Removed CareTask.reason: The initial design put a reason field on CareTask, but reasoning about why a task was chosen belongs to the Scheduler, not the task itself. It was removed from CareTask since explain_plan() on Scheduler is the right place for that logic.
+
+3. Replaced priority str with Priority = Literal["low", "medium", "high"]: A plain string allowed invalid values like "urgent" to pass silently. Using Literal enforces the allowed values at the type level without adding a fifth class.
 
 ---
 

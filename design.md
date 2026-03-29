@@ -26,7 +26,7 @@ classDiagram
         +int duration_minutes
         +String priority
         +String category
-        +String reason
+        +String description
         +is_high_priority() bool
     }
 
