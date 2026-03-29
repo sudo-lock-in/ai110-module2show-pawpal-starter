@@ -2,10 +2,16 @@
 
 ## 1. System Design
 
+The app should be able to store pet info, track pet care tasks, consider constraints, and produce a daily plan.
+
 **a. Initial design**
 
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
+
+The system uses four classes: `Pet` (pet profile), `Owner` (owner profile + time budget), `CareTask` (a single schedulable task), and `Scheduler` (builds and explains the daily plan).
+
+See [design.md](design.md) for the full class diagram.
 
 **b. Design changes**
 
