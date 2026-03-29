@@ -69,13 +69,18 @@ task4 = CareTask(
     description="Brush coat and check for any skin issues"
 )
 
-# Add tasks to the scheduler
+# Add tasks to dog scheduler
 for task in [task1, task2, task3, task4]:
     dog_scheduler.add_task(task)
 
 # Add some notes to tasks
 task1.add_note("Max prefers off-leash play at the park")
 task2.add_note("Use the organic grain-free kibble")
+
+# Assign scheduled times to some tasks to demonstrate conflict detection
+task1.scheduled_time = "08:00"  # Morning Walk at 8:00 AM
+task2.scheduled_time = "08:00"  # Feed Breakfast at 8:00 AM (CONFLICT!)
+task3.scheduled_time = "09:00"  # Playtime at 9:00 AM
 
 # Create a Scheduler for the cat
 cat_scheduler = Scheduler(owner, cat)
@@ -115,7 +120,96 @@ for task in [cat_task1, cat_task2, cat_task3]:
 # Mark one task as completed
 task2.mark_completed()
 
-# Print Today's Schedule
+# ===== CONFLICT DETECTION DEMO =====
+print("=" * 70)
+print("CONFLICT DETECTION SYSTEM DEMO")
+print("=" * 70)
+print()
+
+# Check for conflicts in dog's schedule
+print("Checking Dog's Schedule (Max)...")
+if dog_scheduler.has_scheduling_conflicts():
+    print(f"✓ Conflicts detected: {len(dog_scheduler.detect_time_conflicts())} issue(s) found")
+    dog_scheduler.print_conflict_warnings()
+    
+    # Show detailed warnings
+    print("Detailed Conflict Information:")
+    for warning in dog_scheduler.get_detailed_conflict_warnings():
+        print(f"  {warning}")
+else:
+    print("✓ No scheduling conflicts detected")
+print()
+
+# Check for conflicts in cat's schedule
+print("Checking Cat's Schedule (Whiskers)...")
+if cat_scheduler.has_scheduling_conflicts():
+    print(f"✓ Conflicts detected: {len(cat_scheduler.detect_time_conflicts())} issue(s) found")
+    cat_scheduler.print_conflict_warnings()
+else:
+    print("✓ No scheduling conflicts detected")
+print()
+
+# Check owner's overall time availability
+print("Checking Owner's Time Availability...")
+time_check = owner.check_owner_time_availability()
+print(f"  Total Available: {time_check['total_available_minutes']} minutes")
+print(f"  Total Tasks: {time_check['total_task_minutes']} minutes")
+print(f"  Remaining: {time_check['remaining_minutes']} minutes")
+print(f"  Status: {time_check['warning']}")
+print()
+
+# Demonstrate recurring task automation with due dates
+print("=" * 70)
+print("RECURRING TASK AUTOMATION WITH DUE DATES DEMO")
+print("=" * 70)
+print()
+
+# Show original task info
+print("Original Task:")
+print(task1.get_task_info())
+print()
+
+# Mark a recurring daily task as complete and auto-create next occurrence
+print("Marking 'Feed Breakfast' as complete and creating next occurrence...")
+next_breakfast = dog_scheduler.mark_task_completed_with_recurrence(task2)
+
+if next_breakfast:
+    print(f"✓ Task '{next_breakfast.title}' auto-created!")
+    print(f"  - Status: {'Completed' if next_breakfast.is_completed else 'Pending'}")
+    print(f"  - Frequency: {next_breakfast.frequency}")
+    if next_breakfast.due_date:
+        print(f"  - Due Date: {next_breakfast.due_date.strftime('%A, %B %d, %Y at %H:%M')}")
+    print()
+
+# Mark another daily task as complete
+print("Marking 'Morning Walk' as complete and creating next occurrence...")
+next_walk = dog_scheduler.mark_task_completed_with_recurrence(task1)
+
+if next_walk:
+    print(f"✓ Task '{next_walk.title}' auto-created!")
+    print(f"  - Status: {'Completed' if next_walk.is_completed else 'Pending'}")
+    print(f"  - Frequency: {next_walk.frequency}")
+    if next_walk.due_date:
+        print(f"  - Due Date: {next_walk.due_date.strftime('%A, %B %d, %Y at %H:%M')}")
+    print()
+
+# Mark a weekly task as complete
+print("Marking 'Grooming' as complete and creating next occurrence...")
+next_groom = dog_scheduler.mark_task_completed_with_recurrence(task4)
+
+if next_groom:
+    print(f"✓ Task '{next_groom.title}' auto-created!")
+    print(f"  - Status: {'Completed' if next_groom.is_completed else 'Pending'}")
+    print(f"  - Frequency: {next_groom.frequency}")
+    if next_groom.due_date:
+        print(f"  - Due Date: {next_groom.due_date.strftime('%A, %B %d, %Y at %H:%M')}")
+    print()
+
+print(f"Total tasks in dog's schedule: {len(dog_scheduler.get_tasks())}")
+print()
+
+print("=" * 70)
+
 print("=" * 70)
 print("TODAY'S SCHEDULE - PAW PAL SYSTEM".center(70))
 print("=" * 70)
