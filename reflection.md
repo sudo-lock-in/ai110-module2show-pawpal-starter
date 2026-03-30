@@ -51,10 +51,18 @@ My Scheduler has many features and accounts for a lot of things, which makes it 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+I used AI to explain things and also to help me with terminal virtual environment setup so I can easily run the program. 
+
+Prompts that asked the AI to verify if what was implemented made sense was most helpful since it may find bugs I would not have caught so soon myself.
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+The AI once suggested me to make a new class for tracking priority but that went against my plan of keeping only 4 classes, so I asked for alternative ideas. 
+
+To verify what AI suggested me, I would manual test and also ensure the test cases I already had in pytest still gave good results.
 
 ---
 
@@ -65,10 +73,14 @@ My Scheduler has many features and accounts for a lot of things, which makes it 
 - What behaviors did you test?
 - Why were these tests important?
 
+Key features that were tested are overlaps, recurring tasks, and sorting. These are a big part of the app's functionality so ensuring it worked as expected is important.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+I am very confident in my scheduler. I think I would test if there would be any confusion between pets sharing the same name but with different owners and such. Though that would be mostly a UI clarity issue if anything.
 
 ---
 
@@ -78,10 +90,18 @@ My Scheduler has many features and accounts for a lot of things, which makes it 
 
 - What part of this project are you most satisfied with?
 
+I am satisfied with how I integrated Pandas and the way I displayed the pet information in the UI.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+I would make the app layout more appealing and also make it so that the app does more work for the user. But being as customizable as it is now is fine too.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+I learned how much your plans may change as you begin to work on developing the systems. The difference between the initial design and final UML was a lot. 
+
+When it comes to working with AI, it is definitely not something you should blindly follow. AI overlooks a lot of its own mistakes which can cause many problems here.

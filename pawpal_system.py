@@ -308,9 +308,22 @@ class Scheduler:
         return f"{hours:02d}:{mins:02d}"
 
     def add_task(self, task: CareTask) -> None:
-        """Add a task to the scheduler after validating it fits within available time."""
+        """Add a task to the scheduler after validating it fits within available time across ALL owner's pets."""
+        # Check if single task exceeds limit
         if task.duration_minutes > self.owner.available_minutes:
             raise ValueError(f"'{task.title}' ({task.duration_minutes} min) exceeds owner's available time ({self.owner.available_minutes} min)")
+        
+        # Check total time across ALL pets owned by this owner
+        total_all_pets = 0
+        for owned_pet in self.owner.pets:
+            for pet_task in owned_pet.get_tasks():
+                total_all_pets += pet_task.duration_minutes
+        
+        new_total = total_all_pets + task.duration_minutes
+        
+        if new_total > self.owner.available_minutes:
+            raise ValueError(f"Adding '{task.title}' ({task.duration_minutes} min) would exceed owner's available time. Total across all pets: {total_all_pets} min, Limit: {self.owner.available_minutes} min, Requested total: {new_total} min")
+        
         self.tasks.append(task)
         self.pet.add_task(task)
 
@@ -668,6 +681,41 @@ class Scheduler:
                 return self._minutes_to_time(current)
         
         return None
+
+    def schedule_task_at_time(self, task: CareTask, time_slot: str) -> bool:
+        """
+        Schedule a task at a specific time slot.
+        
+        Args:
+            task: The CareTask to schedule
+            time_slot: Time in 'HH:MM' format
+        
+        Returns:
+            True if successfully scheduled, False if there's a conflict
+        """
+        # Validate time format
+        slot_minutes = self._time_to_minutes(time_slot)
+        if slot_minutes < 0:
+            return False
+        
+        task_end = slot_minutes + task.duration_minutes
+        
+        # Check for conflicts with existing scheduled tasks
+        for existing_task in self.tasks:
+            if not existing_task.scheduled_time:
+                continue
+            existing_start = self._time_to_minutes(existing_task.scheduled_time)
+            if existing_start < 0:
+                continue
+            existing_end = existing_start + existing_task.duration_minutes
+            
+            # Check overlap
+            if slot_minutes < existing_end and existing_start < task_end:
+                return False  # Conflict detected
+        
+        # No conflicts - set the time
+        task.scheduled_time = time_slot
+        return True
 
     def get_plan_summary(self, detailed: bool = False) -> str:
         """

@@ -42,19 +42,22 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## Demo
+![alt text](image.png)
+
 ## Smarter Scheduling
 
 The **Scheduler** class provides intelligent task management and planning features:
 
 ### Key Features
 
-- **Unified Filtering**: Filter tasks by status, priority, category, and frequency with a single method
-- **Smart Sorting**: Multiple sorting strategies (priority, time, duration, fit optimization, frequency)
-- **Conflict Detection**: Automatic detection of scheduling conflicts with detailed overlap analysis
-- **Recurring Tasks**: Automatic creation of next occurrences for daily, weekly, and monthly tasks
-- **Time Window Queries**: Find tasks within specific time slots and suggest available time slots
-- **Capacity Planning**: Check owner availability and detect overbooking across multiple pets
-- **Schedule Optimization**: Build optimized schedules based on priority and time constraints
+- **Multi-Criteria Filtering**: Filter tasks by status, priority, category, and frequency
+- **Smart Sorting**: Priority, duration, time, frequency, and fit optimization modes
+- **Conflict Detection**: Automatic scheduling conflict detection with overlap analysis
+- **Recurring Tasks**: Daily, weekly, and monthly task recurrence with auto-generation
+- **Time Slot Management**: Find available slots and query tasks by time window
+- **Capacity Planning**: Detect overbooking across owner's available time
+- **Schedule Building**: Optimized schedules based on priority and constraints
 
 ### Example Usage
 
