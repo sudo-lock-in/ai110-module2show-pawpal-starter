@@ -13,6 +13,19 @@ Classes:
 Type Aliases:
     Priority: Literal type for task priority levels ("low", "medium", "high")
     Frequency: Literal type for task frequency ("one-time", "daily", "weekly", "monthly")
+Methods for marking completion, creating recurring instances, and managing notes.
+Manages a collection of care tasks and health records for a single pet.
+Aggregates tasks and preferences across all owned pets, checks time availability.
+Provides task filtering, sorting, conflict detection, and schedule generation.
+Handles time slot management and recurring task expansion.
+Key Features:
+    - Task management with priority and frequency tracking
+    - Recurring task automation with next occurrence calculation
+    - Time conflict detection and resolution suggestions
+    - Schedule optimization and capacity planning
+    - Support for multiple pets per owner with aggregate reporting
+    - Detailed conflict warnings with overlap calculations
+    - Schedule building based on priority and time constraints
 """
 from typing import Literal
 from datetime import datetime, timedelta
@@ -276,6 +289,24 @@ class Scheduler:
         self.pet = pet
         self.tasks: list[CareTask] = []
 
+    # ===== UTILITY METHODS =====
+    
+    @staticmethod
+    def _time_to_minutes(time_str: str) -> int:
+        """Convert 'HH:MM' to minutes since midnight. Returns -1 if invalid."""
+        try:
+            hours, minutes = map(int, time_str.split(':'))
+            return hours * 60 + minutes
+        except:
+            return -1
+    
+    @staticmethod
+    def _minutes_to_time(minutes: int) -> str:
+        """Convert minutes since midnight to 'HH:MM' format."""
+        hours = minutes // 60
+        mins = minutes % 60
+        return f"{hours:02d}:{mins:02d}"
+
     def add_task(self, task: CareTask) -> None:
         """Add a task to the scheduler after validating it fits within available time."""
         if task.duration_minutes > self.owner.available_minutes:
@@ -293,17 +324,80 @@ class Scheduler:
         """Return all tasks in the scheduler."""
         return self.tasks.copy()
 
+    def filter_tasks(self,
+                     status: str | None = None,
+                     priority: Priority | None = None,
+                     category: str | None = None,
+                     frequency: Frequency | None = None) -> list[CareTask]:
+        """
+        Filter tasks by multiple criteria. All filters are optional and combined with AND logic.
+        
+        Args:
+            status: 'pending', 'completed', or None (all)
+            priority: 'high', 'medium', 'low', or None (all)
+            category: Category name or None (all)
+            frequency: 'daily', 'weekly', 'monthly', 'one-time', or None (all)
+        
+        Returns: Filtered list of tasks
+        """
+        result = self.tasks
+        
+        if status == 'pending':
+            result = [t for t in result if not t.is_completed]
+        elif status == 'completed':
+            result = [t for t in result if t.is_completed]
+        
+        if priority:
+            result = [t for t in result if t.priority == priority]
+        
+        if category:
+            result = [t for t in result if t.category == category]
+        
+        if frequency:
+            result = [t for t in result if t.frequency == frequency]
+        
+        return result
+
+    def sort_tasks(self, by: str = "priority") -> list[CareTask]:
+        """
+        Sort tasks by different criteria.
+        
+        Args:
+            by: 'priority' (default), 'time', 'duration', 'fit' (priority + duration), 'frequency'
+        
+        Returns: Sorted task list
+        """
+        if by == "priority":
+            return sorted(self.tasks,
+                key=lambda t: (
+                    0 if t.priority == "high" else (1 if t.priority == "medium" else 2),
+                    {"one-time": 0, "daily": 1, "weekly": 2, "monthly": 3}.get(t.frequency, 4),
+                    t.duration_minutes
+                ))
+        
+        elif by == "time":
+            return sorted(self.tasks,
+                key=lambda t: (t.scheduled_time or "99:99", t.title))
+        
+        elif by == "duration":
+            return sorted(self.tasks, key=lambda t: t.duration_minutes)
+        
+        elif by == "fit":  # Best fit for available time
+            return sorted(self.tasks,
+                key=lambda t: (
+                    0 if t.priority == "high" else (1 if t.priority == "medium" else 2),
+                    t.duration_minutes
+                ))
+        
+        elif by == "frequency":
+            return sorted(self.tasks,
+                key=lambda t: {"one-time": 0, "daily": 1, "weekly": 2, "monthly": 3}.get(t.frequency, 4))
+        
+        return self.tasks.copy()
+    
     def build_schedule(self) -> list[CareTask]:
         """Build an optimized schedule by sorting tasks by priority and frequency."""
-        sorted_tasks = sorted(
-            self.tasks,
-            key=lambda task: (
-                0 if task.priority == "high" else (1 if task.priority == "medium" else 2),
-                {"one-time": 0, "daily": 1, "weekly": 2, "monthly": 3}.get(task.frequency, 4),
-                task.duration_minutes
-            )
-        )
-        return sorted_tasks
+        return self.sort_tasks(by='priority')
 
     def calculate_total_duration(self) -> int:
         """Calculate total duration of all tasks in minutes."""
@@ -316,23 +410,23 @@ class Scheduler:
 
     def get_pending_tasks(self) -> list[CareTask]:
         """Return all incomplete tasks."""
-        return [task for task in self.tasks if not task.is_completed]
+        return self.filter_tasks(status='pending')
 
     def get_completed_tasks(self) -> list[CareTask]:
         """Return all completed tasks."""
-        return [task for task in self.tasks if task.is_completed]
+        return self.filter_tasks(status='completed')
 
     def get_tasks_by_priority(self, priority: Priority) -> list[CareTask]:
         """Return all tasks with a specific priority level."""
-        return [task for task in self.tasks if task.priority == priority]
+        return self.filter_tasks(priority=priority)
 
     def get_tasks_by_category(self, category: str) -> list[CareTask]:
         """Return all tasks in a specific category."""
-        return [task for task in self.tasks if task.category == category]
+        return self.filter_tasks(category=category)
 
     def get_tasks_by_frequency(self, frequency: Frequency) -> list[CareTask]:
         """Return all tasks with a specific frequency."""
-        return [task for task in self.tasks if task.frequency == frequency]
+        return self.filter_tasks(frequency=frequency)
 
     def mark_task_completed(self, task: CareTask) -> None:
         """Mark a task as completed."""
@@ -375,69 +469,6 @@ class Scheduler:
 
     # ===== EFFICIENCY IMPROVEMENTS =====
     
-    def sort_tasks_by_time(self) -> list[CareTask]:
-        """Sort tasks by scheduled time (earliest first). Unscheduled tasks go last."""
-        return sorted(
-            self.tasks,
-            key=lambda task: (task.scheduled_time or "99:99", task.title)
-        )
-    
-    def sort_tasks_by_duration(self, ascending: bool = True) -> list[CareTask]:
-        """Sort tasks by duration. Useful for fitting tasks into available time."""
-        return sorted(self.tasks, key=lambda task: task.duration_minutes, reverse=not ascending)
-    
-    def filter_tasks_by_pet(self, pet: Pet) -> list[CareTask]:
-        """Filter tasks for a specific pet."""
-        return [task for task in self.pet.get_tasks() if task in self.tasks]
-    
-    def filter_tasks_by_status(self, status: str = "pending") -> list[CareTask]:
-        """
-        Filter tasks by status: 'pending' (incomplete), 'completed', or 'all'.
-        Returns tasks matching the status.
-        """
-        if status.lower() == "pending":
-            return self.get_pending_tasks()
-        elif status.lower() == "completed":
-            return self.get_completed_tasks()
-        else:  # 'all'
-            return self.get_tasks()
-    
-    def filter_tasks_by_status_and_pet(self, status: str = "all", pet_name: str = "") -> list[CareTask]:
-        """
-        Filter tasks by completion status and/or pet name.
-        
-        Args:
-            status: 'pending' (incomplete), 'completed', or 'all' (default)
-            pet_name: Name of the pet to filter by (optional, empty string = all pets)
-        
-        Returns:
-            List of tasks matching both criteria.
-        
-        Example:
-            # Get all pending tasks for Max
-            tasks = scheduler.filter_tasks_by_status_and_pet("pending", "Max")
-            
-            # Get all completed tasks across all pets
-            tasks = scheduler.filter_tasks_by_status_and_pet("completed", "")
-        """
-        # First, filter by status
-        if status.lower() == "pending":
-            filtered = self.get_pending_tasks()
-        elif status.lower() == "completed":
-            filtered = self.get_completed_tasks()
-        else:  # 'all'
-            filtered = self.get_tasks()
-        
-        # Then, filter by pet name if provided
-        if pet_name.strip():
-            # Only keep tasks that belong to the specified pet
-            filtered = [
-                task for task in filtered 
-                if task in self.pet.get_tasks() and self.pet.name.lower() == pet_name.lower()
-            ]
-        
-        return filtered
-    
     def get_recurring_tasks_for_day(self) -> list[CareTask]:
         """Get all recurring tasks (daily, weekly, monthly) that should happen today."""
         return [task for task in self.tasks if task.frequency != "one-time"]
@@ -466,20 +497,44 @@ class Scheduler:
         
         return expanded
     
-    def detect_time_conflicts(self) -> list[tuple[CareTask, CareTask]]:
+    def detect_time_conflicts(self, detailed: bool = False) -> list[tuple | dict]:
         """
-        Detect scheduling conflicts when tasks have overlapping scheduled times.
-        Returns list of conflicting task pairs.
+        Detect scheduling conflicts. Returns simple or detailed format.
+        
+        Args:
+            detailed: If True, include overlap calculations; if False, return simple pairs
+        
+        Returns:
+            List of (task1, task2) tuples or dicts with overlap info
         """
         conflicts = []
         scheduled_tasks = [t for t in self.tasks if t.scheduled_time]
         
         for i, task1 in enumerate(scheduled_tasks):
+            start1 = self._time_to_minutes(task1.scheduled_time)
+            if start1 < 0:
+                continue
+            end1 = start1 + task1.duration_minutes
+            
             for task2 in scheduled_tasks[i + 1:]:
-                # Simple check: if both have the same scheduled time, they conflict
-                # In a real system, you'd calculate end times
-                if task1.scheduled_time == task2.scheduled_time:
-                    conflicts.append((task1, task2))
+                start2 = self._time_to_minutes(task2.scheduled_time)
+                if start2 < 0:
+                    continue
+                end2 = start2 + task2.duration_minutes
+                
+                # Check for overlap
+                if start1 < end2 and start2 < end1:
+                    if detailed:
+                        overlap = min(end1, end2) - max(start1, start2)
+                        conflicts.append({
+                            'task1': task1.title,
+                            'task2': task2.title,
+                            'task1_time': f"{task1.scheduled_time}-{self._minutes_to_time(end1)}",
+                            'task2_time': f"{task2.scheduled_time}-{self._minutes_to_time(end2)}",
+                            'overlap_minutes': overlap
+                        })
+                    else:
+                        conflicts.append((task1, task2))
         
         return conflicts
     
@@ -492,7 +547,7 @@ class Scheduler:
             ['WARNING: Feed Breakfast (10 min) and Morning Walk (30 min) both scheduled at 08:00']
         """
         warnings = []
-        conflicts = self.detect_time_conflicts()
+        conflicts = self.detect_time_conflicts(detailed=False)
         
         for task1, task2 in conflicts:
             warning = (
@@ -529,43 +584,10 @@ class Scheduler:
     def detect_time_conflicts_detailed(self) -> list[dict]:
         """
         Detect time conflicts with detailed time window calculations.
-        Assumes tasks can be scheduled back-to-back.
+        Deprecated: Use detect_time_conflicts(detailed=True) instead.
         Returns list of conflict details including overlapping time windows.
         """
-        conflicts_detail = []
-        scheduled_tasks = [t for t in self.tasks if t.scheduled_time]
-        
-        def time_to_minutes(time_str: str) -> int:
-            """Convert 'HH:MM' to minutes since midnight."""
-            try:
-                hours, minutes = map(int, time_str.split(':'))
-                return hours * 60 + minutes
-            except:
-                return -1
-        
-        for i, task1 in enumerate(scheduled_tasks):
-            start1 = time_to_minutes(task1.scheduled_time)
-            if start1 < 0:
-                continue
-            end1 = start1 + task1.duration_minutes
-            
-            for task2 in scheduled_tasks[i + 1:]:
-                start2 = time_to_minutes(task2.scheduled_time)
-                if start2 < 0:
-                    continue
-                end2 = start2 + task2.duration_minutes
-                
-                # Check for overlap
-                if start1 < end2 and start2 < end1:
-                    conflicts_detail.append({
-                        'task1': task1.title,
-                        'task2': task2.title,
-                        'task1_time': f"{task1.scheduled_time}-{(start1 + task1.duration_minutes) // 60:02d}:{(start1 + task1.duration_minutes) % 60:02d}",
-                        'task2_time': f"{task2.scheduled_time}-{end2 // 60:02d}:{end2 % 60:02d}",
-                        'overlap_minutes': min(end1, end2) - max(start1, start2)
-                    })
-        
-        return conflicts_detail
+        return self.detect_time_conflicts(detailed=True)
     
     def get_detailed_conflict_warnings(self) -> list[str]:
         """
@@ -576,7 +598,7 @@ class Scheduler:
             ['⚠ WARNING: Morning Walk (08:00-08:30) overlaps with Feed Breakfast (08:15-08:25) by 10 minutes']
         """
         warnings = []
-        conflicts = self.detect_time_conflicts_detailed()
+        conflicts = self.detect_time_conflicts(detailed=True)
         
         for conflict in conflicts:
             warning = (
@@ -587,33 +609,13 @@ class Scheduler:
         
         return warnings
     
-    def fit_tasks_optimally(self) -> list[CareTask]:
-        """
-        Sort and recommend tasks in order that best fits available time.
-        Uses greedy algorithm: prioritize high priority, then short duration.
-        """
-        return sorted(
-            self.tasks,
-            key=lambda task: (
-                0 if task.priority == "high" else (1 if task.priority == "medium" else 2),
-                task.duration_minutes
-            )
-        )
-    
     def get_tasks_by_time_window(self, start_time: str, end_time: str) -> list[CareTask]:
         """
         Get all tasks scheduled within a time window.
         Times in format 'HH:MM' (e.g., '09:00', '17:00')
         """
-        def time_to_minutes(time_str: str) -> int:
-            try:
-                hours, minutes = map(int, time_str.split(':'))
-                return hours * 60 + minutes
-            except:
-                return -1
-        
-        start_min = time_to_minutes(start_time)
-        end_min = time_to_minutes(end_time)
+        start_min = self._time_to_minutes(start_time)
+        end_min = self._time_to_minutes(end_time)
         
         if start_min < 0 or end_min < 0:
             return []
@@ -622,7 +624,7 @@ class Scheduler:
         for task in self.tasks:
             if not task.scheduled_time:
                 continue
-            task_start = time_to_minutes(task.scheduled_time)
+            task_start = self._time_to_minutes(task.scheduled_time)
             if task_start < 0:
                 continue
             
@@ -636,19 +638,7 @@ class Scheduler:
         Suggest the next available time slot for a task of given duration.
         Returns time in 'HH:MM' format or None if no slot available.
         """
-        def time_to_minutes(time_str: str) -> int:
-            try:
-                hours, minutes = map(int, time_str.split(':'))
-                return hours * 60 + minutes
-            except:
-                return -1
-        
-        def minutes_to_time(minutes: int) -> str:
-            hours = minutes // 60
-            mins = minutes % 60
-            return f"{hours:02d}:{mins:02d}"
-        
-        current = time_to_minutes(start_from)
+        current = self._time_to_minutes(start_from)
         if current < 0:
             return None
         
@@ -663,7 +653,7 @@ class Scheduler:
             for task in self.tasks:
                 if not task.scheduled_time:
                     continue
-                task_start = time_to_minutes(task.scheduled_time)
+                task_start = self._time_to_minutes(task.scheduled_time)
                 if task_start < 0:
                     continue
                 task_end = task_start + task.duration_minutes
@@ -675,58 +665,67 @@ class Scheduler:
                     break
             
             if not conflict:
-                return minutes_to_time(current)
+                return self._minutes_to_time(current)
         
         return None
 
-    def explain_plan(self) -> str:
-        """Provide a detailed explanation of the care plan."""
-        schedule = self.build_schedule()
+    def get_plan_summary(self, detailed: bool = False) -> str:
+        """
+        Get schedule summary. Detailed version includes all task info.
+        
+        Args:
+            detailed: If True, show detailed plan; if False, show concise summary
+        
+        Returns: Formatted summary string
+        """
         total_duration = self.calculate_total_duration()
-        pending_count = len(self.get_pending_tasks())
+        total_tasks = len(self.tasks)
+        pending_tasks = len(self.filter_tasks(status='pending'))
+        completed_tasks = len(self.filter_tasks(status='completed'))
+        high_priority = len(self.filter_tasks(priority='high'))
         
-        explanation = (
-            f"Care Plan for {self.pet.name}\n"
-            f"{'=' * 50}\n"
-            f"Owner: {self.owner.name}\n"
-            f"Pet: {self.pet.name} ({self.pet.species})\n"
-            f"Available Time: {self.owner.available_minutes} minutes\n"
-            f"Total Task Duration: {total_duration} minutes\n"
-            f"Time Remaining: {self.owner.available_minutes - total_duration} minutes\n"
-            f"Pending Tasks: {pending_count}\n\n"
-            f"Scheduled Tasks (by priority):\n"
-            f"{'-' * 50}\n"
-        )
-        
-        for i, task in enumerate(schedule, 1):
-            status = "✓" if task.is_completed else "○"
-            explanation += (
-                f"{i}. [{status}] {task.title} ({task.category})\n"
-                f"   Duration: {task.duration_minutes} min | Priority: {task.priority}\n"
-                f"   Frequency: {task.frequency}\n"
+        if detailed:
+            schedule = self.sort_tasks(by='priority')
+            output = (
+                f"Care Plan for {self.pet.name}\n"
+                f"{'=' * 50}\n"
+                f"Owner: {self.owner.name}\n"
+                f"Pet: {self.pet.name} ({self.pet.species})\n"
+                f"Available Time: {self.owner.available_minutes} minutes\n"
+                f"Total Task Duration: {total_duration} minutes\n"
+                f"Time Remaining: {self.owner.available_minutes - total_duration} minutes\n"
+                f"Pending Tasks: {pending_tasks}\n\n"
+                f"Scheduled Tasks (by priority):\n"
+                f"{'-' * 50}\n"
+            )
+            
+            for i, task in enumerate(schedule, 1):
+                status = "✓" if task.is_completed else "○"
+                output += (
+                    f"{i}. [{status}] {task.title} ({task.category})\n"
+                    f"   Duration: {task.duration_minutes} min | Priority: {task.priority}\n"
+                    f"   Frequency: {task.frequency}\n"
+                )
+        else:
+            output = (
+                f"SCHEDULE SUMMARY\n"
+                f"{'=' * 40}\n"
+                f"Pet: {self.pet.name}\n"
+                f"Owner: {self.owner.name}\n"
+                f"Total Tasks: {total_tasks}\n"
+                f"  - Pending: {pending_tasks}\n"
+                f"  - Completed: {completed_tasks}\n"
+                f"  - High Priority: {high_priority}\n"
+                f"Total Duration: {total_duration}/{self.owner.available_minutes} minutes\n"
+                f"Status: {'✓ All tasks fit!' if total_duration <= self.owner.available_minutes else '✗ Exceeds available time'}"
             )
         
-        return explanation
+        return output
+
+    def explain_plan(self) -> str:
+        """Provide a detailed explanation of the care plan."""
+        return self.get_plan_summary(detailed=True)
 
     def get_summary(self) -> str:
         """Provide a concise summary of the schedule."""
-        total_duration = self.calculate_total_duration()
-        total_tasks = len(self.tasks)
-        pending_tasks = len(self.get_pending_tasks())
-        completed_tasks = len(self.get_completed_tasks())
-        high_priority = len(self.get_tasks_by_priority("high"))
-        
-        summary = (
-            f"SCHEDULE SUMMARY\n"
-            f"{'=' * 40}\n"
-            f"Pet: {self.pet.name}\n"
-            f"Owner: {self.owner.name}\n"
-            f"Total Tasks: {total_tasks}\n"
-            f"  - Pending: {pending_tasks}\n"
-            f"  - Completed: {completed_tasks}\n"
-            f"  - High Priority: {high_priority}\n"
-            f"Total Duration: {total_duration}/{self.owner.available_minutes} minutes\n"
-            f"Status: {'✓ All tasks fit!' if total_duration <= self.owner.available_minutes else '✗ Exceeds available time'}"
-        )
-        
-        return summary
+        return self.get_plan_summary(detailed=False)

@@ -16,7 +16,7 @@ The system uses four classes: Pet (pet profile), Owner (owner profile + time bud
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
-Yes and three changes were made.
+Yes and three changes were made:
 
 1. Fixed relationship directions: The original diagram had Owner --> Scheduler, but Scheduler is the class that holds owner and pet as attributes. The arrows were reversed to Scheduler --> Owner and Scheduler --> Pet to reflect what the code actually expresses.
 
@@ -33,10 +33,14 @@ Yes and three changes were made.
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+My scheduler considered time (overlapping & exceeding), priority, and start preferences. I decided that time availability mattered the most since regardless of preference or priority if there is not enough time to do something, you simply cannot do it.
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
+
+My Scheduler has many features and accounts for a lot of things, which makes it more complex and the code less readable. I believe the tradeoff is worth it to ensure that the schedules being made consider various aspects to create quality plans for owners.
 
 ---
 
